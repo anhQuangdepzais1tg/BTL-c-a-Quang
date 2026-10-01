@@ -10,6 +10,12 @@
 
         public decimal SoTien { get; set; }
 
-        public string PhuongThuc { get; set; }
+        public string PhuongThuc { get; set; } = string.Empty;
+
+        public DateTime NgayTao { get; set; }
+
+        public int? NguoiTao { get; set; }
+
+        public bool IsDeleted { get; set; }
     }
 }

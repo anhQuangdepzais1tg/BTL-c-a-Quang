@@ -10,6 +10,16 @@
 
         public decimal SoTien { get; set; }
 
-        public string TrangThai { get; set; }
+        public string TrangThai { get; set; } = string.Empty;
+
+        public DateTime NgayTao { get; set; }
+
+        public int? NguoiTao { get; set; }
+
+        public DateTime? NgayCapNhat { get; set; }
+
+        public bool IsDeleted { get; set; }
+
+        public DateTime? NgayXoa { get; set; }
     }
 }

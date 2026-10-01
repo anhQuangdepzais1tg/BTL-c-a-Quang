@@ -69,14 +69,12 @@ namespace QuanLyBaoHiem.Controllers
         [HttpDelete("{id}")]
         public IActionResult Delete(int id)
         {
-            var data = _service.GetById(id);
+            var result = _service.Delete(id);
 
-            if (data == null)
+            if (!result)
             {
-                return NotFound();
+                return NotFound("Không tìm thấy loại bảo hiểm");
             }
-
-            _service.Delete(id);
 
             return Ok("Xóa loại bảo hiểm thành công");
         }

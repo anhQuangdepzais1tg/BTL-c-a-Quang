@@ -1,0 +1,17 @@
+﻿namespace QuanLyBaoHiem.Models
+{
+    public class HopDong_LichSu
+    {
+        public int MaLichSu { get; set; }
+
+        public int MaHD { get; set; }
+
+        public int SoPhienBan { get; set; }
+
+        public string DuLieuCu { get; set; } = string.Empty;
+
+        public int? NguoiSua { get; set; }
+
+        public DateTime ThoiGianSua { get; set; }
+    }
+}
