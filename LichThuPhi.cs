@@ -12,7 +12,7 @@
 
         public decimal SoTien { get; set; }
 
-        public string TrangThai { get; set; } = string.Empty;
+        public string TrangThai { get; set; } = "Chưa đến hạn";
 
         public int? MaHDN { get; set; }
 

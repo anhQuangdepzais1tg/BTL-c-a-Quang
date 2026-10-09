@@ -15,5 +15,7 @@
         public bool DuocSua { get; set; }
 
         public bool DuocXoa { get; set; }
+
+        public bool DuocXuatFile { get; set; }
     }
-}   
+}
