@@ -1,170 +1,35 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using QuanLyBaoHiem.DAL;
 using QuanLyBaoHiem.Models;
-using QuanLyBaoHiem.Repositories;
 
-namespace QuanLyBaoHiem.Services
+namespace QuanLyBaoHiem.BLL
 {
     public class TaiLieuDinhKemService
     {
-        private readonly TaiLieuDinhKemRepository _repo;
+        private readonly TaiLieuDinhKemData _data;
 
-        public TaiLieuDinhKemService(
-            TaiLieuDinhKemRepository repo)
+        public TaiLieuDinhKemService(TaiLieuDinhKemData data)
         {
-            _repo = repo;
+            _data = data;
         }
 
-        // =====================================================
-        // 1. LẤY TẤT CẢ TÀI LIỆU
-        // =====================================================
-        public List<TaiLieuDinhKem> GetAll()
+        public Task<List<TaiLieuDinhKem>> LayDanhSach()
         {
-            return _repo.GetAll();
+            return _data.LayDanhSach();
         }
 
-        // =====================================================
-        // 2. LẤY TÀI LIỆU THEO ID
-        // =====================================================
-        public TaiLieuDinhKem? GetById(int id)
+        public Task<TaiLieuDinhKem?> LayTheoMa(int ma)
         {
-            return _repo.GetById(id);
+            return _data.LayTheoMa(ma);
         }
 
-        // =====================================================
-        // 3. UPLOAD FILE
-        // =====================================================
-        public async Task<TaiLieuDinhKem> Upload(
-            int maThucThe,
-            string loaiThucThe,
-            IFormFile file,
-            int nguoiUpload)
+        public Task Them(TaiLieuDinhKem taiLieu)
         {
-            // Kiểm tra mã thực thể
-            if (maThucThe <= 0)
-            {
-                throw new Exception(
-                    "Mã thực thể không hợp lệ");
-            }
-
-            // Kiểm tra loại thực thể
-            if (string.IsNullOrWhiteSpace(loaiThucThe))
-            {
-                throw new Exception(
-                    "Loại thực thể không được để trống");
-            }
-
-            // Chỉ cho phép 3 loại
-            if (loaiThucThe != "HopDong" &&
-                loaiThucThe != "BoiThuong" &&
-                loaiThucThe != "KhachHang")
-            {
-                throw new Exception(
-                    "Loại thực thể phải là HopDong, BoiThuong hoặc KhachHang");
-            }
-
-            // Kiểm tra file
-            if (file == null || file.Length == 0)
-            {
-                throw new Exception(
-                    "Vui lòng chọn file");
-            }
-
-            // =================================================
-            // TẠO THƯ MỤC LƯU FILE
-            // =================================================
-
-            string folder =
-                Path.Combine(
-                    Directory.GetCurrentDirectory(),
-                    "wwwroot",
-                    "uploads");
-
-            if (!Directory.Exists(folder))
-            {
-                Directory.CreateDirectory(folder);
-            }
-
-            // =================================================
-            // TẠO TÊN FILE MỚI
-            // =================================================
-
-            string extension =
-                Path.GetExtension(file.FileName);
-
-            string fileName =
-                Guid.NewGuid().ToString()
-                + extension;
-
-            string filePath =
-                Path.Combine(
-                    folder,
-                    fileName);
-
-            // =================================================
-            // LƯU FILE
-            // =================================================
-
-            using (var stream =
-                   new FileStream(
-                       filePath,
-                       FileMode.Create))
-            {
-                await file.CopyToAsync(stream);
-            }
-
-            // =================================================
-            // XÁC ĐỊNH LOẠI FILE
-            // =================================================
-
-            string loaiFile = "other";
-
-            if (file.ContentType.StartsWith("image/"))
-            {
-                loaiFile = "image";
-            }
-            else if (
-                file.ContentType == "application/pdf")
-            {
-                loaiFile = "pdf";
-            }
-
-            // Đường dẫn file trả về cho API
-            string duongDanFile =
-                "/uploads/" + fileName;
-
-            // =================================================
-            // TẠO OBJECT TÀI LIỆU
-            // =================================================
-
-            var taiLieu = new TaiLieuDinhKem
-            {
-                LoaiThucThe = loaiThucThe,
-                MaThucThe = maThucThe,
-                TenFileGoc = file.FileName,
-                DuongDanFile = duongDanFile,
-                LoaiFile = loaiFile,
-                KichThuocByte = (int)file.Length,
-                NguoiUpload = nguoiUpload,
-                NgayUpload = DateTime.Now,
-                IsDeleted = false,
-                NgayXoa = null
-            };
-
-            // =================================================
-            // LƯU THÔNG TIN VÀO DATABASE
-            // =================================================
-
-            _repo.Add(taiLieu);
-
-            return taiLieu;
+            return _data.Them(taiLieu);
         }
 
-        // =====================================================
-        // 4. XÓA MỀM
-        // =====================================================
-        public bool Delete(int id)
+        public Task<bool> XoaMem(int ma)
         {
-            return _repo.Delete(id);
+            return _data.XoaMem(ma);
         }
     }
 }

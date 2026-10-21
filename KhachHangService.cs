@@ -1,95 +1,137 @@
-﻿using QuanLyBaoHiem.Models;
-using QuanLyBaoHiem.Repositories;
+﻿
+using QuanLyBaoHiem.DAL;
+using QuanLyBaoHiem.Models;
+using QuanLyBaoHiem.Models.DTO;
 
-namespace QuanLyBaoHiem.Services
+namespace QuanLyBaoHiem.BLL
 {
     public class KhachHangService
     {
-        private readonly KhachHangRepository _repository;
+        private readonly KhachHangData _data;
 
-        public KhachHangService(KhachHangRepository repository)
+        public KhachHangService(KhachHangData data)
         {
-            _repository = repository;
+            _data = data;
         }
 
-        // Lấy tất cả khách hàng
-        public List<KhachHang> GetAll()
+        public async Task<object> LayTatCa(
+            string? tuKhoa, int page, int size)
         {
-            return _repository.GetAll();
-        }
+            page = Math.Max(page, 1);
+            size = Math.Clamp(size, 1, 100);
 
-        // Lấy theo mã
-        public KhachHang? GetById(int id)
-        {
-            return _repository.GetById(id);
-        }
+            var data = await _data.LayTatCa(tuKhoa, page, size);
+            var tongSo = await _data.DemTatCa(tuKhoa);
 
-        // Tìm kiếm + phân trang
-        public (List<KhachHang> Data, int TotalCount) GetPaged(
-            string? keyword,
-            int pageIndex,
-            int pageSize)
-        {
-            if (pageIndex < 1)
-                pageIndex = 1;
-
-            if (pageSize < 1)
-                pageSize = 10;
-
-            return _repository.GetPaged(
-                keyword,
-                pageIndex,
-                pageSize);
-        }
-
-        // Thêm khách hàng
-        public bool Add(KhachHang khachHang)
-        {
-            // Kiểm tra CCCD đã tồn tại chưa
-            var trungCCCD = _repository.GetAll()
-                .Any(x => x.CCCD == khachHang.CCCD && !x.IsDeleted);
-
-            if (trungCCCD)
+            return new
             {
-                return false;
-            }
-
-            // Thêm khách hàng
-            _repository.Add(khachHang);
-
-            return true;
+                page,
+                size,
+                tongSo,
+                tongSoTrang = (int)Math.Ceiling(tongSo / (double)size),
+                danhSach = data
+            };
         }
 
-        // Sửa
-        public void Update(KhachHang khachHang)
+        public Task<KhachHang?> LayTheoMa(int maKh)
         {
-            _repository.Update(khachHang);
+            return _data.LayTheoMa(maKh);
         }
 
-        // Xóa mềm
-        public bool DeleteSoft(int id, int? nguoiXoa)
+        public async Task<KhachHang> Them(
+            KhachHangDto dto, int? maNguoiTao)
         {
-            var data = _repository.GetById(id);
+            KiemTraDuLieu(dto);
 
-            if (data == null)
-                return false;
+            if (await _data.TrungSoDienThoai(dto.SoDienThoai.Trim()))
+                throw new ArgumentException("Số điện thoại đã tồn tại.");
 
-            if (_repository.HasActiveContract(id))
+            if (await _data.TrungCccd(dto.Cccd.Trim()))
+                throw new ArgumentException("CCCD đã tồn tại.");
+
+            var kh = new KhachHang
             {
-                throw new Exception(
-                    "Không thể xóa khách hàng vì còn hợp đồng đang hoạt động.");
-            }
+                MaTk = dto.MaTk,
+                HoTen = dto.HoTen.Trim(),
+                SoDienThoai = dto.SoDienThoai.Trim(),
+                DiaChi = dto.DiaChi?.Trim(),
+                Cccd = dto.Cccd.Trim(),
+                NgaySinh = dto.NgaySinh,
+                NgayTao = DateTime.Now,
+                NguoiTao = maNguoiTao,
+                SoPhienBan = 1,
+                IsDeleted = false
+            };
 
-            _repository.DeleteSoft(id, nguoiXoa);
+            await _data.Them(kh);
+            return kh;
+        }
 
+        public async Task<bool> CapNhat(
+            int maKh, KhachHangDto dto, int? maNguoiCapNhat)
+        {
+            KiemTraDuLieu(dto);
+
+            var kh = await _data.LayTheoMa(maKh);
+            if (kh == null) return false;
+
+            if (await _data.TrungSoDienThoai(
+                dto.SoDienThoai.Trim(), maKh))
+                throw new ArgumentException("Số điện thoại đã tồn tại.");
+
+            if (await _data.TrungCccd(dto.Cccd.Trim(), maKh))
+                throw new ArgumentException("CCCD đã tồn tại.");
+
+            kh.MaTk = dto.MaTk;
+            kh.HoTen = dto.HoTen.Trim();
+            kh.SoDienThoai = dto.SoDienThoai.Trim();
+            kh.DiaChi = dto.DiaChi?.Trim();
+            kh.Cccd = dto.Cccd.Trim();
+            kh.NgaySinh = dto.NgaySinh;
+            kh.NgayCapNhat = DateTime.Now;
+            kh.NguoiCapNhat = maNguoiCapNhat;
+            kh.SoPhienBan++;
+
+            await _data.LuuThayDoi();
             return true;
         }
 
-        // Khôi phục
-        public bool Restore(int id)
+        public async Task<bool> XoaMem(int maKh, int? maNguoiXoa)
         {
-            _repository.Restore(id);
+            var kh = await _data.LayTheoMa(maKh);
+            if (kh == null) return false;
+
+            kh.IsDeleted = true;
+            kh.NgayXoa = DateTime.Now;
+            kh.NguoiXoa = maNguoiXoa;
+            kh.NgayCapNhat = DateTime.Now;
+
+            await _data.LuuThayDoi();
             return true;
+        }
+
+        private static void KiemTraDuLieu(KhachHangDto dto)
+        {
+            if (string.IsNullOrWhiteSpace(dto.HoTen))
+                throw new ArgumentException("Họ tên không được để trống.");
+
+            if (dto.HoTen.Trim().Length > 100)
+                throw new ArgumentException("Họ tên không được quá 100 ký tự.");
+
+            if (string.IsNullOrWhiteSpace(dto.SoDienThoai) ||
+                dto.SoDienThoai.Trim().Length > 20)
+                throw new ArgumentException("Số điện thoại không hợp lệ.");
+
+            if (string.IsNullOrWhiteSpace(dto.Cccd) ||
+                dto.Cccd.Trim().Length > 20)
+                throw new ArgumentException("CCCD không hợp lệ.");
+
+            if (dto.DiaChi?.Length > 200)
+                throw new ArgumentException("Địa chỉ không được quá 200 ký tự.");
+
+            if (dto.NgaySinh.HasValue &&
+                dto.NgaySinh.Value > DateOnly.FromDateTime(DateTime.Today))
+                throw new ArgumentException("Ngày sinh không được ở tương lai.");
         }
     }
 }

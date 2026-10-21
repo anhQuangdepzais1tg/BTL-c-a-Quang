@@ -1,60 +1,82 @@
-﻿using QuanLyBaoHiem.Models;
-using QuanLyBaoHiem.Repositories;
+﻿
+using QuanLyBaoHiem.DAL;
+using QuanLyBaoHiem.Models;
 
-namespace QuanLyBaoHiem.Services
+namespace QuanLyBaoHiem.BLL
 {
     public class HopDongService
     {
-        private readonly HopDongRepository _repository;
+        private readonly HopDongData _data;
 
-        public HopDongService(HopDongRepository repository)
+        public HopDongService(HopDongData data)
         {
-            _repository = repository;
+            _data = data;
         }
 
-        public List<HopDong> GetAll()
+        public Task<List<HopDong>> GetAll()
+            => _data.GetAll();
+
+        public Task<HopDong?> GetById(int id)
+            => _data.GetById(id);
+
+        public async Task<(bool ThanhCong, string ThongBao, HopDong? DuLieu)>
+            Create(HopDong hopDong)
         {
-            return _repository.GetAll();
+            if (hopDong.MaKh <= 0 || hopDong.MaLoai <= 0 || hopDong.MaNv <= 0)
+                return (false, "Mã khách hàng, loại bảo hiểm và nhân viên phải lớn hơn 0.", null);
+
+            if (hopDong.NgayKetThuc <= hopDong.NgayBatDau)
+                return (false, "Ngày kết thúc phải sau ngày bắt đầu.", null);
+
+            if (hopDong.SoTien < 0)
+                return (false, "Số tiền không được âm.", null);
+
+            string[] chuKy =
+            {
+                "Hàng năm", "Hàng quý", "Hàng tháng", "Một lần"
+            };
+
+            if (!chuKy.Contains(hopDong.ChuKyDongPhi))
+                return (false, "Chu kỳ đóng phí không hợp lệ.", null);
+
+            var duLieu = await _data.Create(hopDong);
+            return (true, "Thêm hợp đồng thành công.", duLieu);
         }
 
-        public HopDong? GetById(int id)
+        public async Task<(bool ThanhCong, string ThongBao)>
+            Update(int id, HopDong hopDong)
         {
-            return _repository.GetById(id);
+            if (hopDong.MaKh <= 0 || hopDong.MaLoai <= 0 || hopDong.MaNv <= 0)
+                return (false, "Mã khách hàng, loại bảo hiểm và nhân viên phải lớn hơn 0.");
+
+            if (hopDong.NgayKetThuc <= hopDong.NgayBatDau)
+                return (false, "Ngày kết thúc phải sau ngày bắt đầu.");
+
+            if (hopDong.SoTien < 0)
+                return (false, "Số tiền không được âm.");
+
+            string[] chuKy =
+            {
+                "Hàng năm", "Hàng quý", "Hàng tháng", "Một lần"
+            };
+
+            if (!chuKy.Contains(hopDong.ChuKyDongPhi))
+                return (false, "Chu kỳ đóng phí không hợp lệ.");
+
+            var thanhCong = await _data.Update(id, hopDong);
+
+            return thanhCong
+                ? (true, "Cập nhật hợp đồng thành công.")
+                : (false, "Không tìm thấy hợp đồng.");
         }
 
-        public void Add(HopDong hopDong)
+        public async Task<(bool ThanhCong, string ThongBao)> Delete(int id)
         {
-            _repository.Add(hopDong);
-        }
+            var thanhCong = await _data.Delete(id);
 
-        public void Update(HopDong hopDong)
-        {
-            _repository.Update(hopDong);
-        }
-
-        public bool DeleteSoft(int id, int? nguoiXoa)
-        {
-            return _repository.DeleteSoft(id, nguoiXoa);
-        }
-
-        public bool GiaHan(
-            int id,
-            DateTime ngayKetThucMoi,
-            int? nguoiCapNhat)
-        {
-            return _repository.GiaHan(
-                id,
-                ngayKetThucMoi,
-                nguoiCapNhat);
-        }
-
-        public bool Huy(
-            int id,
-            int? nguoiCapNhat)
-        {
-            return _repository.Huy(
-                id,
-                nguoiCapNhat);
+            return thanhCong
+                ? (true, "Xóa mềm hợp đồng thành công.")
+                : (false, "Không tìm thấy hợp đồng.");
         }
     }
 }

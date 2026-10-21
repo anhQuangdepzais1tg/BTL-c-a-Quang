@@ -1,55 +1,98 @@
-﻿using QuanLyBaoHiem.Models;
-using QuanLyBaoHiem.Repositories;
+﻿
+using QuanLyBaoHiem.DAL;
+using QuanLyBaoHiem.Models;
 
-namespace QuanLyBaoHiem.Services
+namespace QuanLyBaoHiem.BLL
 {
     public class LichThuPhiService
     {
-        private readonly LichThuPhiRepository _repository;
+        private readonly LichThuPhiData _data;
 
-        public LichThuPhiService(LichThuPhiRepository repository)
+        public LichThuPhiService(LichThuPhiData data)
         {
-            _repository = repository;
+            _data = data;
         }
 
-        public List<LichThuPhi> GetAll()
+        // Lấy danh sách lịch thu phí
+        public async Task<List<LichThuPhi>> LayDanhSach()
         {
-            return _repository.GetAll();
+            return await _data.LayDanhSach();
         }
 
-        public LichThuPhi? GetById(int id)
+        // Tìm lịch thu phí theo mã
+        public async Task<LichThuPhi?> TimTheoMa(int maLichThu)
         {
-            return _repository.GetById(id);
+            return await _data.TimTheoMa(maLichThu);
         }
 
-        public List<LichThuPhi> GetByHopDong(int maHD)
+        // Thêm lịch thu phí
+        public async Task<string> Them(LichThuPhi lichThuPhi)
         {
-            return _repository.GetByHopDong(maHD);
+            if (lichThuPhi.MaHd <= 0)
+                return "Mã hợp đồng không hợp lệ.";
+
+            if (lichThuPhi.KyThu <= 0)
+                return "Kỳ thu phải lớn hơn 0.";
+
+            if (lichThuPhi.SoTien <= 0)
+                return "Số tiền phải lớn hơn 0.";
+
+            if (string.IsNullOrWhiteSpace(lichThuPhi.TrangThai))
+                return "Vui lòng nhập trạng thái.";
+
+            lichThuPhi.NgayTao = DateTime.Now;
+            lichThuPhi.DaCanhBao = false;
+
+            await _data.Them(lichThuPhi);
+
+            return "Thêm lịch thu phí thành công.";
         }
 
-        public bool Add(LichThuPhi lich)
+        // Cập nhật lịch thu phí
+        public async Task<string> CapNhat(
+            int maLichThu, LichThuPhi lichThuPhi)
         {
-            return _repository.Add(lich);
+            var lichCu = await _data.TimTheoMa(maLichThu);
+
+            if (lichCu == null)
+                return "Không tìm thấy lịch thu phí.";
+
+            if (lichThuPhi.MaHd <= 0)
+                return "Mã hợp đồng không hợp lệ.";
+
+            if (lichThuPhi.KyThu <= 0)
+                return "Kỳ thu phải lớn hơn 0.";
+
+            if (lichThuPhi.SoTien <= 0)
+                return "Số tiền phải lớn hơn 0.";
+
+            if (string.IsNullOrWhiteSpace(lichThuPhi.TrangThai))
+                return "Vui lòng nhập trạng thái.";
+
+            lichCu.MaHd = lichThuPhi.MaHd;
+            lichCu.KyThu = lichThuPhi.KyThu;
+            lichCu.NgayDenHan = lichThuPhi.NgayDenHan;
+            lichCu.SoTien = lichThuPhi.SoTien;
+            lichCu.TrangThai = lichThuPhi.TrangThai;
+            lichCu.MaHdn = lichThuPhi.MaHdn;
+            lichCu.DaCanhBao = lichThuPhi.DaCanhBao;
+
+            await _data.CapNhat(lichCu);
+
+            return "Cập nhật lịch thu phí thành công.";
         }
 
-        public bool Update(int id, LichThuPhi lich)
+        // Xóa lịch thu phí
+        public async Task<string> Xoa(int maLichThu)
         {
-            return _repository.Update(id, lich);
-        }
+            var lichThuPhi = await _data.TimTheoMa(maLichThu);
 
-        public bool DaThanhToan(int id)
-        {
-            return _repository.DaThanhToan(id);
-        }
+            if (lichThuPhi == null)
+                return "Không tìm thấy lịch thu phí.";
 
-        public bool QuaHan(int id)
-        {
-            return _repository.QuaHan(id);
-        }
+            await _data.Xoa(lichThuPhi);
 
-        public bool DanhDauCanhBao(int id)
-        {
-            return _repository.DanhDauCanhBao(id);
+            return "Xóa lịch thu phí thành công.";
         }
     }
 }

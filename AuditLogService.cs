@@ -1,32 +1,45 @@
-﻿using QuanLyBaoHiem.Models;
-using QuanLyBaoHiem.Repositories;
+﻿
+using QuanLyBaoHiem.DAL;
+using QuanLyBaoHiem.Models;
 
-namespace QuanLyBaoHiem.Services
+namespace QuanLyBaoHiem.BLL
 {
     public class AuditLogService
     {
-        private readonly AuditLogRepository _repo;
+        private readonly AuditLogData _data;
 
-        public AuditLogService(
-            AuditLogRepository repo)
+        public AuditLogService(AuditLogData data)
         {
-            _repo = repo;
+            _data = data;
         }
 
-        public List<AuditLog> GetAll(
-            int page,
-            int size,
-            string? bang)
+        public Task<List<AuditLog>> LayTatCa(
+            int page = 1, int size = 20, string? tenBang = null)
         {
-            return _repo.GetAll(
-                page,
-                size,
-                bang);
+            if (page < 1) page = 1;
+            if (size < 1) size = 20;
+            if (size > 100) size = 100;
+
+            return _data.LayTatCa(page, size, tenBang);
         }
 
-        public AuditLog? Get(long id)
+        public Task<AuditLog?> LayTheoMa(long maLog)
         {
-            return _repo.Get(id);
+            return _data.LayTheoMa(maLog);
+        }
+
+        public async Task GhiLog(AuditLog log)
+        {
+            if (string.IsNullOrWhiteSpace(log.TenBang))
+                throw new ArgumentException("Tên bảng không được để trống.");
+
+            if (string.IsNullOrWhiteSpace(log.HanhDong))
+                throw new ArgumentException("Hành động không được để trống.");
+
+            if (log.ThoiGian == default)
+                log.ThoiGian = DateTime.Now;
+
+            await _data.Them(log);
         }
     }
 }

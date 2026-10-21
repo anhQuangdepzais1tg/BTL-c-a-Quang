@@ -1,45 +1,91 @@
-﻿using QuanLyBaoHiem.Models;
-using QuanLyBaoHiem.Repositories;
+﻿
+using QuanLyBaoHiem.DAL;
+using QuanLyBaoHiem.Models;
 
-namespace QuanLyBaoHiem.Services
+namespace QuanLyBaoHiem.BLL
 {
     public class HoaDonService
     {
-        private readonly HoaDonRepository _repository;
+        private readonly HoaDonData _hoaDonData;
 
-        public HoaDonService(HoaDonRepository repository)
+        public HoaDonService(HoaDonData hoaDonData)
         {
-            _repository = repository;
+            _hoaDonData = hoaDonData;
         }
 
-        public List<HoaDon> GetAll()
+        // Lấy danh sách hóa đơn
+        public async Task<List<HoaDon>> LayDanhSach()
         {
-            return _repository.GetAll();
+            return await _hoaDonData.LayDanhSach();
         }
 
-        public HoaDon? GetById(int id)
+        // Tìm hóa đơn theo mã
+        public async Task<HoaDon?> TimTheoMa(int maHdn)
         {
-            return _repository.GetById(id);
+            return await _hoaDonData.TimTheoMa(maHdn);
         }
 
-        public bool Add(HoaDon hoaDon)
+        // Thêm hóa đơn
+        public async Task<string> Them(HoaDon hoaDon)
         {
-            return _repository.Add(hoaDon);
+            if (hoaDon.MaHd <= 0)
+                return "Mã hợp đồng không hợp lệ.";
+
+            if (hoaDon.SoTien <= 0)
+                return "Số tiền hóa đơn phải lớn hơn 0.";
+
+            if (string.IsNullOrWhiteSpace(hoaDon.TrangThai))
+                return "Vui lòng nhập trạng thái hóa đơn.";
+
+            hoaDon.NgayTao = DateTime.Now;
+            hoaDon.NgayCapNhat = null;
+            hoaDon.IsDeleted = false;
+            hoaDon.NgayXoa = null;
+
+            await _hoaDonData.Them(hoaDon);
+
+            return "Thêm hóa đơn thành công.";
         }
 
-        public bool Update(int id, HoaDon hoaDon)
+        // Cập nhật hóa đơn
+        public async Task<string> CapNhat(int maHdn, HoaDon hoaDon)
         {
-            return _repository.Update(id, hoaDon);
+            var hoaDonCu = await _hoaDonData.TimTheoMa(maHdn);
+
+            if (hoaDonCu == null)
+                return "Không tìm thấy hóa đơn.";
+
+            if (hoaDon.MaHd <= 0)
+                return "Mã hợp đồng không hợp lệ.";
+
+            if (hoaDon.SoTien <= 0)
+                return "Số tiền hóa đơn phải lớn hơn 0.";
+
+            if (string.IsNullOrWhiteSpace(hoaDon.TrangThai))
+                return "Vui lòng nhập trạng thái hóa đơn.";
+
+            hoaDonCu.MaHd = hoaDon.MaHd;
+            hoaDonCu.NgayLap = hoaDon.NgayLap;
+            hoaDonCu.SoTien = hoaDon.SoTien;
+            hoaDonCu.TrangThai = hoaDon.TrangThai;
+            hoaDonCu.NgayCapNhat = DateTime.Now;
+
+            await _hoaDonData.CapNhat(hoaDonCu);
+
+            return "Cập nhật hóa đơn thành công.";
         }
 
-        public bool QuaHan(int id)
+        // Xóa mềm hóa đơn
+        public async Task<string> Xoa(int maHdn)
         {
-            return _repository.QuaHan(id);
-        }
+            var hoaDon = await _hoaDonData.TimTheoMa(maHdn);
 
-        public bool DeleteSoft(int id)
-        {
-            return _repository.DeleteSoft(id);
+            if (hoaDon == null)
+                return "Không tìm thấy hóa đơn.";
+
+            await _hoaDonData.XoaMem(hoaDon);
+
+            return "Xóa hóa đơn thành công.";
         }
     }
 }
