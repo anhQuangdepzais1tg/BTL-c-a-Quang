@@ -1,17 +1,21 @@
-﻿namespace QuanLyBaoHiem.Models
+﻿using System;
+using System.Collections.Generic;
+
+namespace QuanLyBaoHiem.Models;
+
+public partial class PasswordResetToken
 {
-    public class PasswordResetToken
-    {
-        public int MaToken { get; set; }
+    public int MaToken { get; set; }
 
-        public int MaTK { get; set; }
+    public int MaTk { get; set; }
 
-        public string Token { get; set; } = string.Empty;
+    public string Token { get; set; } = null!;
 
-        public DateTime NgayTao { get; set; }
+    public DateTime NgayTao { get; set; }
 
-        public DateTime NgayHetHan { get; set; }
+    public DateTime NgayHetHan { get; set; }
 
-        public bool DaSuDung { get; set; }
-    }
+    public bool DaSuDung { get; set; }
+
+    public virtual TaiKhoan MaTkNavigation { get; set; } = null!;
 }

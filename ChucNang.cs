@@ -1,15 +1,19 @@
-﻿namespace QuanLyBaoHiem.Models
+﻿using System;
+using System.Collections.Generic;
+
+namespace QuanLyBaoHiem.Models;
+
+public partial class ChucNang
 {
-    public class ChucNang
-    {
-        public int MaChucNang { get; set; }
+    public int MaChucNang { get; set; }
 
-        public string TenChucNang { get; set; } = string.Empty;
+    public string TenChucNang { get; set; } = null!;
 
-        public int? MaChucNangCha { get; set; }
+    public int? MaChucNangCha { get; set; }
 
-        public string? DuongDan { get; set; }
+    public string? DuongDan { get; set; }
 
-        public bool IsDeleted { get; set; }
-    }
+    public bool IsDeleted { get; set; }
+
+    public virtual ICollection<PhanQuyen> PhanQuyens { get; set; } = new List<PhanQuyen>();
 }
