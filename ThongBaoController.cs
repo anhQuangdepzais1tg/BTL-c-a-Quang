@@ -1,8 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using QuanLyBaoHiem.Models;
-using QuanLyBaoHiem.Services;
 using System.Security.Claims;
+using QuanLyBaoHiem.BLL;
 
 namespace QuanLyBaoHiem.Controllers
 {
@@ -13,76 +12,107 @@ namespace QuanLyBaoHiem.Controllers
     {
         private readonly ThongBaoService _service;
 
-        public ThongBaoController(
-            ThongBaoService service)
+        public ThongBaoController(ThongBaoService service)
         {
             _service = service;
         }
 
-        private int UserId
+        // Lấy mã tài khoản từ JWT
+        private int? LayMaTaiKhoan()
         {
-            get
-            {
-                return int.Parse(
-                    User.FindFirstValue(
-                        ClaimTypes.NameIdentifier)!);
-            }
+            var value = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            return int.TryParse(value, out int maTk) ? maTk : null;
         }
 
+        // Lấy danh sách thông báo của tài khoản đang đăng nhập
         [HttpGet]
-        public IActionResult Get(
-            [FromQuery] bool chuaDoc = false)
+        public async Task<IActionResult> LayDanhSach()
         {
-            return Ok(
-                _service.Get(UserId, chuaDoc));
+            var maTk = LayMaTaiKhoan();
+
+            if (maTk == null)
+                return Unauthorized();
+
+            return Ok(await _service.LayDanhSach(maTk.Value));
         }
 
-        [HttpGet("{id}")]
-        public IActionResult GetById(int id)
+        // Lấy chi tiết thông báo
+        // Admin được xem mọi thông báo, tài khoản thường chỉ xem thông báo của mình
+        [HttpGet("{maTb:int}")]
+        public async Task<IActionResult> LayTheoMa(int maTb)
         {
-            var data =
-                _service.GetById(id, UserId);
+            var maTk = LayMaTaiKhoan();
 
-            if (data == null)
-                return NotFound(
-                    "Không tìm thấy thông báo");
+            if (maTk == null)
+                return Unauthorized();
 
-            return Ok(data);
+            var laAdmin = User.IsInRole("Admin");
+
+            var tb = laAdmin
+                ? await _service.LayTheoMaAdmin(maTb)
+                : await _service.LayTheoMa(maTb, maTk.Value);
+
+            if (tb == null)
+                return NotFound(new { message = "Không tìm thấy thông báo." });
+
+            return Ok(tb);
         }
 
+        public class TaoThongBaoRequest
+        {
+            public int MaTk { get; set; }
+            public string TieuDe { get; set; } = string.Empty;
+            public string NoiDung { get; set; } = string.Empty;
+            public string Loai { get; set; } = string.Empty;
+        }
+
+        // Admin hoặc Manager tạo thông báo
         [HttpPost]
-        public IActionResult Create(ThongBao item)
+        [Authorize(Roles = "Admin,Manager")]
+        public async Task<IActionResult> Them(TaoThongBaoRequest request)
         {
-            if (string.IsNullOrWhiteSpace(item.TieuDe) ||
-                string.IsNullOrWhiteSpace(item.NoiDung))
+            try
             {
-                return BadRequest(
-                    "Thiếu tiêu đề hoặc nội dung");
+                var tb = await _service.Them(
+                    request.MaTk,
+                    request.TieuDe,
+                    request.NoiDung,
+                    request.Loai);
+
+                return Ok(new
+                {
+                    message = "Tạo thông báo thành công.",
+                    maTb = tb.MaTb
+                });
             }
-
-            item.MaTK = UserId;
-
-            return Ok(_service.Add(item));
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
         }
 
-        [HttpPut("dadoc/{id}")]
-        public IActionResult Read(int id)
+        // Đánh dấu thông báo đã đọc
+        [HttpPut("{maTb:int}/dadoc")]
+        public async Task<IActionResult> DanhDauDaDoc(int maTb)
         {
-            if (!_service.Read(id, UserId))
-                return NotFound(
-                    "Không tìm thấy thông báo");
+            var maTk = LayMaTaiKhoan();
 
-            return Ok("Đã đánh dấu đã đọc");
-        }
+            if (maTk == null)
+                return Unauthorized();
 
-        [HttpDelete("{id}")]
-        public IActionResult Delete(int id)
-        {
-            if (!_service.Delete(id, UserId))
-                return NotFound(
-                    "Không tìm thấy thông báo");
+            var laAdmin = User.IsInRole("Admin");
 
-            return Ok("Đã xóa thông báo");
+            var ok = await _service.DanhDauDaDoc(
+                maTb, maTk.Value, laAdmin);
+
+            if (!ok)
+                return NotFound(new { message = "Không tìm thấy thông báo." });
+
+            return Ok(new
+            {
+                message = "Đã đánh dấu thông báo đã đọc."
+            });
         }
     }
 }

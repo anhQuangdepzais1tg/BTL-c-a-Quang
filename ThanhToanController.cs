@@ -1,14 +1,21 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿
 using Microsoft.AspNetCore.Mvc;
+using QuanLyBaoHiem.BLL;
 using QuanLyBaoHiem.Models;
-using QuanLyBaoHiem.Services;
-using System.Security.Claims;
 
 namespace QuanLyBaoHiem.Controllers
 {
+    public class ThanhToanCreateDto
+    {
+        public int MaHdn { get; set; }
+        public DateOnly NgayThanhToan { get; set; }
+        public decimal SoTien { get; set; }
+        public string PhuongThuc { get; set; } = string.Empty;
+        public int? NguoiTao { get; set; }
+    }
+
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize]
     public class ThanhToanController : ControllerBase
     {
         private readonly ThanhToanService _service;
@@ -18,58 +25,107 @@ namespace QuanLyBaoHiem.Controllers
             _service = service;
         }
 
+        // GET: api/ThanhToan
         [HttpGet]
-        public IActionResult GetAll()
+        public async Task<IActionResult> LayDanhSach()
         {
-            return Ok(_service.GetAll());
+            var danhSach = await _service.LayDanhSach();
+
+            var ketQua = danhSach.Select(x => new
+            {
+                x.MaTt,
+                x.MaHdn,
+                x.NgayThanhToan,
+                x.SoTien,
+                x.PhuongThuc,
+                x.NgayTao,
+                x.NguoiTao
+            });
+
+            return Ok(ketQua);
         }
 
-        [HttpGet("{id}")]
-        public IActionResult GetById(int id)
+        // GET: api/ThanhToan/1
+        [HttpGet("{maTt:int}")]
+        public async Task<IActionResult> TimTheoMa(int maTt)
         {
-            var data = _service.GetById(id);
+            var x = await _service.TimTheoMa(maTt);
 
-            if (data == null)
-                return NotFound("Không tìm thấy thanh toán");
+            if (x == null)
+                return NotFound(new
+                {
+                    message = "Không tìm thấy thanh toán."
+                });
 
-            return Ok(data);
+            return Ok(new
+            {
+                x.MaTt,
+                x.MaHdn,
+                x.NgayThanhToan,
+                x.SoTien,
+                x.PhuongThuc,
+                x.NgayTao,
+                x.NguoiTao
+            });
         }
 
-        [HttpGet("hoadon/{maHDN}")]
-        public IActionResult GetByHoaDon(int maHDN)
-        {
-            return Ok(_service.GetByHoaDon(maHDN));
-        }
-
+        // POST: api/ThanhToan
         [HttpPost]
-        public IActionResult Create(ThanhToan item)
+        public async Task<IActionResult> Them(
+            [FromBody] ThanhToanCreateDto dto)
         {
-            if (item.SoTien <= 0)
-                return BadRequest(
-                    "Số tiền phải lớn hơn 0");
+            var thanhToan = new ThanhToan
+            {
+                MaHdn = dto.MaHdn,
+                NgayThanhToan = dto.NgayThanhToan,
+                SoTien = dto.SoTien,
+                PhuongThuc = dto.PhuongThuc,
+                NguoiTao = dto.NguoiTao
+            };
 
-            item.NguoiTao =
-                int.TryParse(
-                    User.FindFirst(
-                        ClaimTypes.NameIdentifier)?.Value,
-                    out var id)
-                ? id
-                : null;
+            var ketQua = await _service.Them(thanhToan);
 
-            if (!_service.Add(item))
-                return BadRequest(
-                    "Hóa đơn không tồn tại hoặc dữ liệu không hợp lệ");
+            if (ketQua != "Thêm thanh toán thành công.")
+                return BadRequest(new { message = ketQua });
 
-            return Ok("Ghi nhận thanh toán thành công");
+            return Ok(new { message = ketQua });
         }
 
-        [HttpDelete("{id}")]
-        public IActionResult Delete(int id)
+        // PUT: api/ThanhToan/1
+        [HttpPut("{maTt:int}")]
+        public async Task<IActionResult> CapNhat(
+            int maTt, [FromBody] ThanhToanCreateDto dto)
         {
-            if (!_service.Delete(id))
-                return NotFound("Không tìm thấy thanh toán");
+            var thanhToan = new ThanhToan
+            {
+                MaHdn = dto.MaHdn,
+                NgayThanhToan = dto.NgayThanhToan,
+                SoTien = dto.SoTien,
+                PhuongThuc = dto.PhuongThuc,
+                NguoiTao = dto.NguoiTao
+            };
 
-            return Ok("Xóa mềm thanh toán thành công");
+            var ketQua = await _service.CapNhat(maTt, thanhToan);
+
+            if (ketQua == "Không tìm thấy thanh toán.")
+                return NotFound(new { message = ketQua });
+
+            if (ketQua != "Cập nhật thanh toán thành công.")
+                return BadRequest(new { message = ketQua });
+
+            return Ok(new { message = ketQua });
+        }
+
+        // DELETE: api/ThanhToan/1
+        [HttpDelete("{maTt:int}")]
+        public async Task<IActionResult> Xoa(int maTt)
+        {
+            var ketQua = await _service.Xoa(maTt);
+
+            if (ketQua == "Không tìm thấy thanh toán.")
+                return NotFound(new { message = ketQua });
+
+            return Ok(new { message = ketQua });
         }
     }
 }

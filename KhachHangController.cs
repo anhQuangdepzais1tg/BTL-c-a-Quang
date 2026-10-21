@@ -1,11 +1,15 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using QuanLyBaoHiem.Models;
-using QuanLyBaoHiem.Services;
+﻿
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
+using QuanLyBaoHiem.BLL;
+using QuanLyBaoHiem.Models.DTO;
 
 namespace QuanLyBaoHiem.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class KhachHangController : ControllerBase
     {
         private readonly KhachHangService _service;
@@ -15,134 +19,91 @@ namespace QuanLyBaoHiem.Controllers
             _service = service;
         }
 
-        // GET: api/KhachHang
+        private int? LayMaTaiKhoan()
+        {
+            var value = User.FindFirst(
+                ClaimTypes.NameIdentifier)?.Value;
+
+            return int.TryParse(value, out int maTk) ? maTk : null;
+        }
+
         [HttpGet]
-        public IActionResult GetAll()
+        public async Task<IActionResult> LayTatCa(
+            [FromQuery] string? tuKhoa = null,
+            [FromQuery] int page = 1,
+            [FromQuery] int size = 10)
         {
-            var data = _service.GetAll();
-
-            return Ok(data);
+            return Ok(await _service.LayTatCa(tuKhoa, page, size));
         }
 
-        // GET: api/KhachHang/1
-        [HttpGet("{id}")]
-        public IActionResult GetById(int id)
+        [HttpGet("{maKh:int}")]
+        public async Task<IActionResult> LayTheoMa(int maKh)
         {
-            var data = _service.GetById(id);
+            if (maKh <= 0)
+                return BadRequest(new { message = "Mã khách hàng không hợp lệ." });
 
-            if (data == null)
-            {
-                return NotFound("Không tìm thấy khách hàng");
-            }
+            var kh = await _service.LayTheoMa(maKh);
 
-            return Ok(data);
+            if (kh == null)
+                return NotFound(new { message = "Không tìm thấy khách hàng." });
+
+            return Ok(kh);
         }
 
-        // GET: api/KhachHang/paged
-        [HttpGet("paged")]
-        public IActionResult GetPaged(
-            string? keyword = null,
-            int pageIndex = 1,
-            int pageSize = 10)
-        {
-            var result = _service.GetPaged(
-                keyword,
-                pageIndex,
-                pageSize);
-
-            return Ok(new
-            {
-                pageIndex = pageIndex,
-                pageSize = pageSize,
-                totalCount = result.TotalCount,
-                data = result.Data
-            });
-        }
-
-        // POST: api/KhachHang
         [HttpPost]
-        public IActionResult Add(KhachHang khachHang)
-        {
-            // Kiểm tra họ tên
-            if (string.IsNullOrWhiteSpace(khachHang.HoTen))
-            {
-                return BadRequest("Họ tên không được để trống.");
-            }
-
-            // Kiểm tra CCCD
-            if (string.IsNullOrWhiteSpace(khachHang.CCCD))
-            {
-                return BadRequest("CCCD không được để trống.");
-            }
-
-            // Thêm khách hàng
-            var result = _service.Add(khachHang);
-
-            if (!result)
-            {
-                return BadRequest("CCCD đã tồn tại.");
-            }
-
-            return Ok("Thêm khách hàng thành công.");
-        }
-
-        // PUT: api/KhachHang/1
-        [HttpPut("{id}")]
-        public IActionResult Update(
-            int id,
-            KhachHang khachHang)
-        {
-            var data = _service.GetById(id);
-
-            if (data == null)
-            {
-                return NotFound("Không tìm thấy khách hàng");
-            }
-
-            khachHang.MaKH = id;
-
-            _service.Update(khachHang);
-
-            return Ok("Sửa khách hàng thành công");
-        }
-
-        // DELETE: api/KhachHang/1
-        [HttpDelete("{id}")]
-        public IActionResult Delete(
-            int id,
-            int? nguoiXoa = null)
+        public async Task<IActionResult> Them([FromBody] KhachHangDto dto)
         {
             try
             {
-                var result = _service.DeleteSoft(
-                    id,
-                    nguoiXoa);
+                var kh = await _service.Them(dto, LayMaTaiKhoan());
 
-                if (!result)
+                return Ok(new
                 {
-                    return NotFound("Không tìm thấy khách hàng");
-                }
-
-                return Ok("Xóa mềm khách hàng thành công");
+                    message = "Thêm khách hàng thành công.",
+                    maKh = kh.MaKh
+                });
             }
-            catch (Exception ex)
+            catch (ArgumentException ex)
             {
-                return BadRequest(ex.Message);
+                return BadRequest(new { message = ex.Message });
             }
         }
 
-        // PUT: api/KhachHang/restore/1
-        [HttpPut("restore/{id}")]
-        public IActionResult Restore(int id)
+        [HttpPut("{maKh:int}")]
+        public async Task<IActionResult> CapNhat(
+            int maKh, [FromBody] KhachHangDto dto)
         {
-            var result = _service.Restore(id);
+            if (maKh <= 0)
+                return BadRequest(new { message = "Mã khách hàng không hợp lệ." });
 
-            if (!result)
+            try
             {
-                return NotFound("Không tìm thấy khách hàng");
-            }
+                var thanhCong = await _service.CapNhat(
+                    maKh, dto, LayMaTaiKhoan());
 
-            return Ok("Khôi phục khách hàng thành công");
+                if (!thanhCong)
+                    return NotFound(new { message = "Không tìm thấy khách hàng." });
+
+                return Ok(new { message = "Cập nhật khách hàng thành công." });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpDelete("{maKh:int}")]
+        public async Task<IActionResult> Xoa(int maKh)
+        {
+            if (maKh <= 0)
+                return BadRequest(new { message = "Mã khách hàng không hợp lệ." });
+
+            var thanhCong = await _service.XoaMem(maKh, LayMaTaiKhoan());
+
+            if (!thanhCong)
+                return NotFound(new { message = "Không tìm thấy khách hàng." });
+
+            return Ok(new { message = "Xóa mềm khách hàng thành công." });
         }
     }
 }

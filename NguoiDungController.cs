@@ -1,209 +1,142 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using QuanLyBaoHiem.Models;
-using QuanLyBaoHiem.Services;
 using System.Security.Claims;
+using QuanLyBaoHiem.BLL;
+using QuanLyBaoHiem.Models.DTO;
 
 namespace QuanLyBaoHiem.Controllers
 {
-    [Route("api/[controller]")]
     [ApiController]
+    [Route("api/[controller]")]
     public class NguoiDungController : ControllerBase
     {
-        private readonly NguoiDungService _service;
+        private readonly NguoiDung _nguoiDung;
 
-        public NguoiDungController(NguoiDungService service)
+        public NguoiDungController(NguoiDung nguoiDung)
         {
-            _service = service;
+            _nguoiDung = nguoiDung;
         }
 
-        // =====================================================
-        // ĐĂNG KÝ
-        // POST: api/NguoiDung/register
-        // =====================================================
-        [AllowAnonymous]
         [HttpPost("register")]
-        public IActionResult Register(RegisterRequest request)
-        {
-            try
-            {
-                var result = _service.Register(request);
-
-                return Ok(result);
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(ex.Message);
-            }
-        }
-
-        // =====================================================
-        // ĐĂNG NHẬP
-        // POST: api/NguoiDung/login
-        // =====================================================
         [AllowAnonymous]
-        [HttpPost("login")]
-        public IActionResult Login(LoginRequest request)
+        public IActionResult DangKy(DangKyRequest request)
         {
             try
             {
-                var ip = HttpContext.Connection
-                    .RemoteIpAddress?
-                    .ToString();
-
-                var result = _service.Login(request, ip);
-
-                return Ok(result);
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(
-                    ex.InnerException?.Message
-                    ?? ex.Message);
-            }
-        }
-
-        // =====================================================
-        // THÔNG TIN NGƯỜI ĐANG ĐĂNG NHẬP
-        // GET: api/NguoiDung/me
-        // =====================================================
-        [Authorize]
-        [HttpGet("me")]
-        public IActionResult Me()
-        {
-            var maTK = User.FindFirstValue(
-                ClaimTypes.NameIdentifier);
-
-            var tenDangNhap = User.FindFirstValue(
-                ClaimTypes.Name);
-
-            var email = User.FindFirstValue(
-                ClaimTypes.Email);
-
-            var quyen = User.FindFirstValue(
-                ClaimTypes.Role);
-
-            return Ok(new
-            {
-                MaTK = maTK,
-                TenDangNhap = tenDangNhap,
-                Email = email,
-                Quyen = quyen
-            });
-        }
-
-        // =====================================================
-        // ĐĂNG XUẤT
-        // POST: api/NguoiDung/logout
-        // =====================================================
-        [Authorize]
-        [HttpPost("logout")]
-        public IActionResult Logout()
-        {
-            var maTK = User.FindFirstValue(
-                ClaimTypes.NameIdentifier);
-
-            if (maTK == null)
-                return Unauthorized();
-
-            _service.Logout(int.Parse(maTK));
-
-            return Ok("Đăng xuất thành công");
-        }
-
-        // =====================================================
-        // REFRESH TOKEN
-        // POST: api/NguoiDung/refresh
-        // =====================================================
-        [AllowAnonymous]
-        [HttpPost("refresh")]
-        public IActionResult Refresh(string refreshToken)
-        {
-            try
-            {
-                var result =
-                    _service.Refresh(refreshToken);
-
-                return Ok(result);
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(ex.Message);
-            }
-        }
-
-        // =====================================================
-        // ĐỔI MẬT KHẨU
-        // POST: api/NguoiDung/change-password
-        // =====================================================
-        [Authorize]
-        [HttpPost("change-password")]
-        public IActionResult ChangePassword(
-            ChangePasswordRequest request)
-        {
-            try
-            {
-                var maTK = User.FindFirstValue(
-                    ClaimTypes.NameIdentifier);
-
-                if (maTK == null)
-                    return Unauthorized();
-
-                _service.ChangePassword(
-                    int.Parse(maTK),
-                    request);
-
-                return Ok("Đổi mật khẩu thành công");
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(ex.Message);
-            }
-        }
-
-        // =====================================================
-        // QUÊN MẬT KHẨU
-        // POST: api/NguoiDung/forgot-password
-        // =====================================================
-        [AllowAnonymous]
-        [HttpPost("forgot-password")]
-        public IActionResult ForgotPassword(string email)
-        {
-            try
-            {
-                var token =
-                    _service.ForgotPassword(email);
-
                 return Ok(new
                 {
-                    message = "Đã tạo mã đặt lại mật khẩu",
-                    token = token
+                    thanhCong = true,
+                    thongBao = _nguoiDung.DangKy(request)
                 });
             }
             catch (Exception ex)
             {
-                return BadRequest(ex.Message);
+                return BadRequest(new
+                {
+                    thanhCong = false,
+                    thongBao = ex.Message
+                });
             }
         }
 
-        // =====================================================
-        // ĐẶT LẠI MẬT KHẨU
-        // POST: api/NguoiDung/reset-password
-        // =====================================================
+        [HttpPost("login")]
         [AllowAnonymous]
-        [HttpPost("reset-password")]
-        public IActionResult ResetPassword(
-            ResetPasswordRequest request)
+        public IActionResult DangNhap(DangNhapRequest request)
         {
             try
             {
-                _service.ResetPassword(request);
+                string? ip = HttpContext.Connection.RemoteIpAddress?.ToString();
+                string? thietBi = Request.Headers.UserAgent.ToString();
 
-                return Ok("Đặt lại mật khẩu thành công");
+                return Ok(_nguoiDung.DangNhap(request, ip, thietBi));
             }
             catch (Exception ex)
             {
-                return BadRequest(ex.Message);
+                return Unauthorized(new
+                {
+                    thanhCong = false,
+                    thongBao = ex.Message
+                });
+            }
+        }
+
+        [HttpGet("me")]
+        [Authorize]
+        public IActionResult ThongTin()
+        {
+            return Ok(new
+            {
+                maTK = User.FindFirst(ClaimTypes.NameIdentifier)?.Value,
+                tenDangNhap = User.Identity?.Name,
+                quyen = User.FindFirst(ClaimTypes.Role)?.Value
+            });
+        }
+
+        [HttpPost("refresh")]
+        [AllowAnonymous]
+        public IActionResult Refresh(RefreshTokenRequest request)
+        {
+            try
+            {
+                string? ip = HttpContext.Connection.RemoteIpAddress?.ToString();
+                string? thietBi = Request.Headers.UserAgent.ToString();
+
+                return Ok(_nguoiDung.LamMoiToken(
+                    request.Token, ip, thietBi));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { thongBao = ex.Message });
+            }
+        }
+
+        [HttpPost("revoke-refresh-token")]
+        [AllowAnonymous]
+        public IActionResult ThuHoi(RefreshTokenRequest request)
+        {
+            try
+            {
+                return Ok(new
+                {
+                    thongBao = _nguoiDung.ThuHoiToken(request.Token)
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { thongBao = ex.Message });
+            }
+        }
+
+        [HttpPost("forgot-password")]
+        [AllowAnonymous]
+        public IActionResult QuenMatKhau(ForgotPasswordRequest request)
+        {
+            try
+            {
+                return Ok(_nguoiDung.QuenMatKhau(request.Email));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { thongBao = ex.Message });
+            }
+        }
+
+        [HttpPost("reset-password")]
+        [AllowAnonymous]
+        public IActionResult DatLaiMatKhau(ResetPasswordRequest request)
+        {
+            try
+            {
+                return Ok(new
+                {
+                    thongBao = _nguoiDung.DatLaiMatKhau(
+                        request.Token, request.MatKhauMoi)
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { thongBao = ex.Message });
             }
         }
     }

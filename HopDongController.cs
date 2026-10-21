@@ -1,6 +1,7 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using QuanLyBaoHiem.Models.DTO;
+using Microsoft.AspNetCore.Mvc;
+using QuanLyBaoHiem.BLL;
 using QuanLyBaoHiem.Models;
-using QuanLyBaoHiem.Services;
 
 namespace QuanLyBaoHiem.Controllers
 {
@@ -15,134 +16,89 @@ namespace QuanLyBaoHiem.Controllers
             _service = service;
         }
 
-        // ==========================================
-        // GET: api/HopDong
-        // ==========================================
         [HttpGet]
-        public IActionResult GetAll()
+        public async Task<IActionResult> GetAll()
         {
-            var data = _service.GetAll();
-
-            return Ok(data);
+            return Ok(await _service.GetAll());
         }
 
-        // ==========================================
-        // GET: api/HopDong/1
-        // ==========================================
-        [HttpGet("{id}")]
-        public IActionResult GetById(int id)
+        [HttpGet("{id:int}")]
+        public async Task<IActionResult> GetById(int id)
         {
-            var data = _service.GetById(id);
+            var hopDong = await _service.GetById(id);
 
-            if (data == null)
-            {
-                return NotFound("Không tìm thấy hợp đồng");
-            }
+            if (hopDong == null)
+                return NotFound(new { message = "Không tìm thấy hợp đồng." });
 
-            return Ok(data);
+            return Ok(hopDong);
         }
 
-        // ==========================================
-        // POST: api/HopDong
-        // ==========================================
         [HttpPost]
-        public IActionResult Add(HopDong hopDong)
+        public async Task<IActionResult> Create([FromBody] HopDongCreateDto dto)
         {
-            try
+            var hopDong = new HopDong
             {
-                _service.Add(hopDong);
+                MaKh = dto.MaKh,
+                MaLoai = dto.MaLoai,
+                MaNv = dto.MaNv,
+                NgayBatDau = dto.NgayBatDau,
+                NgayKetThuc = dto.NgayKetThuc,
+                SoTien = dto.SoTien,
+                ChuKyDongPhi = dto.ChuKyDongPhi,
+                NguoiTao = dto.NguoiTao
+            };
 
-                return Ok("Thêm hợp đồng thành công");
-            }
-            catch (Exception ex)
+            var ketQua = await _service.Create(hopDong);
+
+            if (!ketQua.ThanhCong)
             {
-                return BadRequest(ex.Message);
+                return BadRequest(new { message = ketQua.ThongBao });
             }
+
+            return Ok(new
+            {
+                message = ketQua.ThongBao,
+                data = ketQua.DuLieu
+            });
         }
 
-        // ==========================================
-        // PUT: api/HopDong/1
-        // ==========================================
         [HttpPut("{id}")]
-        public IActionResult Update(
-            int id,
-            HopDong hopDong)
+        public async Task<IActionResult> Update(
+    int id, [FromBody] HopDongCreateDto dto)
         {
-            var data = _service.GetById(id);
-
-            if (data == null)
+            var hopDong = new HopDong
             {
-                return NotFound("Không tìm thấy hợp đồng");
+                MaKh = dto.MaKh,
+                MaLoai = dto.MaLoai,
+                MaNv = dto.MaNv,
+                NgayBatDau = dto.NgayBatDau,
+                NgayKetThuc = dto.NgayKetThuc,
+                SoTien = dto.SoTien,
+                ChuKyDongPhi = dto.ChuKyDongPhi
+            };
+
+            var ketQua = await _service.Update(id, hopDong);
+
+            if (!ketQua.ThanhCong)
+            {
+                return BadRequest(new { message = ketQua.ThongBao });
             }
 
-            hopDong.MaHD = id;
-
-            _service.Update(hopDong);
-
-            return Ok("Sửa hợp đồng thành công");
+            return Ok(new
+            {
+                message = ketQua.ThongBao
+            });
         }
 
-        // ==========================================
-        // DELETE: api/HopDong/1?nguoiXoa=4
-        // ==========================================
-        [HttpDelete("{id}")]
-        public IActionResult Delete(
-            int id,
-            int? nguoiXoa = null)
+        [HttpDelete("{id:int}")]
+        public async Task<IActionResult> Delete(int id)
         {
-            var result =
-                _service.DeleteSoft(id, nguoiXoa);
+            var ketQua = await _service.Delete(id);
 
-            if (!result)
-            {
-                return NotFound("Không tìm thấy hợp đồng");
-            }
+            if (!ketQua.ThanhCong)
+                return NotFound(new { message = ketQua.ThongBao });
 
-            return Ok("Xóa mềm hợp đồng thành công");
-        }
-
-        // ==========================================
-        // PUT: api/HopDong/giahan/1
-        // ==========================================
-        [HttpPut("giahan/{id}")]
-        public IActionResult GiaHan(
-            int id,
-            DateTime ngayKetThucMoi,
-            int? nguoiCapNhat = null)
-        {
-            var result =
-                _service.GiaHan(
-                    id,
-                    ngayKetThucMoi,
-                    nguoiCapNhat);
-
-            if (!result)
-            {
-                return NotFound("Không tìm thấy hợp đồng");
-            }
-
-            return Ok("Gia hạn hợp đồng thành công");
-        }
-
-        // ==========================================
-        // PUT: api/HopDong/huy/1
-        // ==========================================
-        [HttpPut("huy/{id}")]
-        public IActionResult Huy(
-            int id,
-            int? nguoiCapNhat = null)
-        {
-            var result =
-                _service.Huy(
-                    id,
-                    nguoiCapNhat);
-
-            if (!result)
-            {
-                return NotFound("Không tìm thấy hợp đồng");
-            }
-
-            return Ok("Hủy hợp đồng thành công");
+            return Ok(new { message = ketQua.ThongBao });
         }
     }
 }

@@ -1,13 +1,12 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using QuanLyBaoHiem.Models.DTO;
 using Microsoft.AspNetCore.Mvc;
+using QuanLyBaoHiem.BLL;
 using QuanLyBaoHiem.Models;
-using QuanLyBaoHiem.Services;
 
 namespace QuanLyBaoHiem.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize]
     public class BoiThuongController : ControllerBase
     {
         private readonly BoiThuongService _service;
@@ -17,92 +16,92 @@ namespace QuanLyBaoHiem.Controllers
             _service = service;
         }
 
-        // GET: api/BoiThuong
+        // 1. Lấy danh sách bồi thường
         [HttpGet]
-        public IActionResult GetAll()
+        public async Task<IActionResult> GetAll()
         {
-            return Ok(_service.GetAll());
+            var danhSach = await _service.GetAll();
+            return Ok(danhSach);
         }
 
-        // GET: api/BoiThuong/1
+        // 2. Lấy bồi thường theo mã
         [HttpGet("{id}")]
-        public IActionResult GetById(int id)
+        public async Task<IActionResult> GetById(int id)
         {
-            var data = _service.GetById(id);
+            var duLieu = await _service.GetById(id);
 
-            if (data == null)
-                return NotFound("Không tìm thấy yêu cầu bồi thường");
+            if (duLieu == null)
+                return NotFound(new { message = "Không tìm thấy yêu cầu bồi thường." });
 
-            return Ok(data);
+            return Ok(duLieu);
         }
 
-        // POST: api/BoiThuong
+        // 3. Thêm yêu cầu bồi thường
+
         [HttpPost]
-        public IActionResult Create([FromBody] BoiThuong boiThuong)
+        public async Task<IActionResult> Create(
+            [FromBody] BoiThuongCreateDto duLieu)
         {
-            if (boiThuong == null)
-                return BadRequest("Dữ liệu không hợp lệ");
+            var boiThuong = new BoiThuong
+            {
+                MaHd = duLieu.MaHd,
+                MaNv = duLieu.MaNv,
+                NgayYeuCau = duLieu.NgayYeuCau,
+                LyDo = duLieu.LyDo,
+                SoTien = duLieu.SoTien,
+                TrangThai = duLieu.TrangThai,
+                NguoiTao = duLieu.NguoiTao
+            };
 
-            var result = _service.Add(boiThuong);
+            var ketQua = await _service.Create(boiThuong);
 
-            if (!result)
-                return BadRequest(
-                    "Hợp đồng không tồn tại hoặc không còn hiệu lực");
+            if (!ketQua.ThanhCong)
+                return BadRequest(new { message = ketQua.ThongBao });
 
-            return Ok("Tạo yêu cầu bồi thường thành công");
+            return Ok(new { message = ketQua.ThongBao });
         }
 
-        // PUT: api/BoiThuong/duyet/1
-        [HttpPut("duyet/{id}")]
-        public IActionResult Duyet(
-            int id,
-            int maNVXuLy,
-            int? nguoiCapNhat = null)
+
+        // 4. Cập nhật yêu cầu bồi thường
+
+        [HttpPut("{id}")]
+        public async Task<IActionResult> Update(
+            int id, [FromBody] BoiThuongCreateDto duLieu)
         {
-            var result = _service.Duyet(
-                id,
-                maNVXuLy,
-                nguoiCapNhat);
+            var boiThuong = new BoiThuong
+            {
+                MaHd = duLieu.MaHd,
+                MaNv = duLieu.MaNv,
+                NgayYeuCau = duLieu.NgayYeuCau,
+                LyDo = duLieu.LyDo,
+                SoTien = duLieu.SoTien,
+                TrangThai = duLieu.TrangThai
+            };
 
-            if (!result)
-                return BadRequest(
-                    "Không tìm thấy yêu cầu hoặc yêu cầu không ở trạng thái Đang xử lý");
+            var ketQua = await _service.Update(id, boiThuong);
 
-            return Ok("Duyệt bồi thường thành công");
+            if (!ketQua.ThanhCong)
+            {
+                if (ketQua.ThongBao == "Không tìm thấy yêu cầu bồi thường.")
+                    return NotFound(new { message = ketQua.ThongBao });
+
+                return BadRequest(new { message = ketQua.ThongBao });
+            }
+
+            return Ok(new { message = ketQua.ThongBao });
         }
 
-        // PUT: api/BoiThuong/tuchoi/1
-        [HttpPut("tuchoi/{id}")]
-        public IActionResult TuChoi(
-            int id,
-            int maNVXuLy,
-            int? nguoiCapNhat = null)
-        {
-            var result = _service.TuChoi(
-                id,
-                maNVXuLy,
-                nguoiCapNhat);
 
-            if (!result)
-                return BadRequest(
-                    "Không tìm thấy yêu cầu hoặc yêu cầu không ở trạng thái Đang xử lý");
-
-            return Ok("Từ chối bồi thường thành công");
-        }
-
-        // DELETE: api/BoiThuong/1
+        // 5. Xóa mềm yêu cầu bồi thường
         [HttpDelete("{id}")]
-        public IActionResult Delete(
-            int id,
-            int? nguoiXoa = null)
+        public async Task<IActionResult> Delete(int id)
         {
-            var result = _service.DeleteSoft(id, nguoiXoa);
+            var ketQua = await _service.Delete(id);
 
-            if (!result)
-                return NotFound(
-                    "Không tìm thấy yêu cầu bồi thường");
+            if (!ketQua.ThanhCong)
+                return NotFound(new { message = ketQua.ThongBao });
 
-            return Ok("Xóa mềm yêu cầu bồi thường thành công");
+            return Ok(new { message = ketQua.ThongBao });
         }
     }
 }

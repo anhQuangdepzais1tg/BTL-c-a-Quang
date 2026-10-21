@@ -1,102 +1,126 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿
 using Microsoft.AspNetCore.Mvc;
+using QuanLyBaoHiem.BLL;
 using QuanLyBaoHiem.Models;
-using QuanLyBaoHiem.Services;
+using QuanLyBaoHiem.Models.DTO;
 
 namespace QuanLyBaoHiem.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize]
     public class HoaDonController : ControllerBase
     {
-        private readonly HoaDonService _service;
+        private readonly HoaDonService _hoaDonService;
 
-        public HoaDonController(HoaDonService service)
+        public HoaDonController(HoaDonService hoaDonService)
         {
-            _service = service;
+            _hoaDonService = hoaDonService;
         }
 
         // GET: api/HoaDon
         [HttpGet]
-        public IActionResult GetAll()
+        public async Task<IActionResult> LayDanhSach()
         {
-            return Ok(_service.GetAll());
+            var danhSach = await _hoaDonService.LayDanhSach();
+
+            // Chỉ trả về dữ liệu cần thiết, tránh lỗi JSON vòng lặp
+            var ketQua = danhSach.Select(x => new
+            {
+                x.MaHdn,
+                x.MaHd,
+                x.NgayLap,
+                x.SoTien,
+                x.TrangThai,
+                x.NgayTao,
+                x.NgayCapNhat
+            });
+
+            return Ok(ketQua);
         }
 
         // GET: api/HoaDon/1
-        [HttpGet("{id}")]
-        public IActionResult GetById(int id)
+        [HttpGet("{maHdn:int}")]
+        public async Task<IActionResult> TimTheoMa(int maHdn)
         {
-            var data = _service.GetById(id);
+            var hoaDon = await _hoaDonService.TimTheoMa(maHdn);
 
-            if (data == null)
-                return NotFound("Không tìm thấy hóa đơn");
+            if (hoaDon == null)
+                return NotFound(new { message = "Không tìm thấy hóa đơn." });
 
-            return Ok(data);
+            return Ok(new
+            {
+                hoaDon.MaHdn,
+                hoaDon.MaHd,
+                hoaDon.NgayLap,
+                hoaDon.SoTien,
+                hoaDon.TrangThai,
+                hoaDon.NgayTao,
+                hoaDon.NgayCapNhat
+            });
         }
 
         // POST: api/HoaDon
+
         [HttpPost]
-        public IActionResult Create([FromBody] HoaDon hoaDon)
+        public async Task<IActionResult> Them(
+            [FromBody] HoaDonCreateDto dto)
         {
-            if (hoaDon == null)
-                return BadRequest("Dữ liệu không hợp lệ");
+            var hoaDon = new HoaDon
+            {
+                MaHd = dto.MaHd,
+                NgayLap = dto.NgayLap,
+                SoTien = dto.SoTien,
+                TrangThai = dto.TrangThai,
+                NguoiTao = dto.NguoiTao
+            };
 
-            if (hoaDon.SoTien < 0)
-                return BadRequest("Số tiền không được âm");
+            var ketQua = await _hoaDonService.Them(hoaDon);
 
-            var result = _service.Add(hoaDon);
+            if (ketQua != "Thêm hóa đơn thành công.")
+                return BadRequest(new { message = ketQua });
 
-            if (!result)
-                return BadRequest("Hợp đồng không tồn tại");
-
-            return Ok("Tạo hóa đơn thành công");
+            return Ok(new { message = ketQua });
         }
+
 
         // PUT: api/HoaDon/1
-        [HttpPut("{id}")]
-        public IActionResult Update(
-            int id,
-            [FromBody] HoaDon hoaDon)
+
+        [HttpPut("{maHdn:int}")]
+        public async Task<IActionResult> CapNhat(
+            int maHdn,
+            [FromBody] HoaDonCreateDto dto)
         {
-            if (hoaDon == null)
-                return BadRequest("Dữ liệu không hợp lệ");
+            var hoaDon = new HoaDon
+            {
+                MaHd = dto.MaHd,
+                NgayLap = dto.NgayLap,
+                SoTien = dto.SoTien,
+                TrangThai = dto.TrangThai,
+                NguoiTao = dto.NguoiTao
+            };
 
-            if (hoaDon.SoTien < 0)
-                return BadRequest("Số tiền không được âm");
+            var ketQua = await _hoaDonService.CapNhat(maHdn, hoaDon);
 
-            var result = _service.Update(id, hoaDon);
+            if (ketQua == "Không tìm thấy hóa đơn.")
+                return NotFound(new { message = ketQua });
 
-            if (!result)
-                return NotFound("Không tìm thấy hóa đơn");
+            if (ketQua != "Cập nhật hóa đơn thành công.")
+                return BadRequest(new { message = ketQua });
 
-            return Ok("Cập nhật hóa đơn thành công");
+            return Ok(new { message = ketQua });
         }
 
-        // PUT: api/HoaDon/quahan/1
-        [HttpPut("quahan/{id}")]
-        public IActionResult QuaHan(int id)
-        {
-            var result = _service.QuaHan(id);
-
-            if (!result)
-                return BadRequest(
-                    "Không tìm thấy hóa đơn hoặc hóa đơn đã thanh toán");
-
-            return Ok("Đã chuyển hóa đơn sang trạng thái Quá hạn");
-        }
 
         // DELETE: api/HoaDon/1
-        [HttpDelete("{id}")]
-        public IActionResult Delete(int id)
+        [HttpDelete("{maHdn:int}")]
+        public async Task<IActionResult> Xoa(int maHdn)
         {
-            var result = _service.DeleteSoft(id);
+            var ketQua = await _hoaDonService.Xoa(maHdn);
 
-            if (!result)
-                return NotFound("Không tìm thấy hóa đơn");
+            if (ketQua == "Không tìm thấy hóa đơn.")
+                return NotFound(new { message = ketQua });
 
-            return Ok("Xóa mềm hóa đơn thành công");
+            return Ok(new { message = ketQua });
         }
     }
 }

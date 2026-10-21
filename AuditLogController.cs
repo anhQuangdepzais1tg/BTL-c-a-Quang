@@ -1,6 +1,7 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using QuanLyBaoHiem.Services;
+using QuanLyBaoHiem.BLL;
 
 namespace QuanLyBaoHiem.Controllers
 {
@@ -11,39 +12,33 @@ namespace QuanLyBaoHiem.Controllers
     {
         private readonly AuditLogService _service;
 
-        public AuditLogController(
-            AuditLogService service)
+        public AuditLogController(AuditLogService service)
         {
             _service = service;
         }
 
+        // GET: api/AuditLog?page=1&size=20&tenBang=HopDong
         [HttpGet]
-        public IActionResult GetAll(
-            int page = 1,
-            int size = 50,
-            string? bang = null)
+        public async Task<IActionResult> LayTatCa(
+            [FromQuery] int page = 1,
+            [FromQuery] int size = 20,
+            [FromQuery] string? tenBang = null)
         {
-            if (page < 1)
-                page = 1;
-
-            if (size < 1 || size > 200)
-                size = 50;
-
-            return Ok(
-                _service.GetAll(
-                    page,
-                    size,
-                    bang));
+            var data = await _service.LayTatCa(page, size, tenBang);
+            return Ok(data);
         }
 
-        [HttpGet("{id}")]
-        public IActionResult Get(long id)
+        // GET: api/AuditLog/1
+        [HttpGet("{maLog:long}")]
+        public async Task<IActionResult> LayTheoMa(long maLog)
         {
-            var data = _service.Get(id);
+            if (maLog <= 0)
+                return BadRequest(new { message = "Mã log không hợp lệ." });
+
+            var data = await _service.LayTheoMa(maLog);
 
             if (data == null)
-                return NotFound(
-                    "Không tìm thấy log");
+                return NotFound(new { message = "Không tìm thấy nhật ký." });
 
             return Ok(data);
         }

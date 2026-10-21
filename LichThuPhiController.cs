@@ -1,13 +1,24 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿
 using Microsoft.AspNetCore.Mvc;
+using QuanLyBaoHiem.BLL;
 using QuanLyBaoHiem.Models;
-using QuanLyBaoHiem.Services;
 
 namespace QuanLyBaoHiem.Controllers
 {
+    // DTO nhận dữ liệu POST/PUT, tránh yêu cầu MaHdNavigation
+    public class LichThuPhiDto
+    {
+        public int MaHd { get; set; }
+        public int KyThu { get; set; }
+        public DateOnly NgayDenHan { get; set; }
+        public decimal SoTien { get; set; }
+        public string TrangThai { get; set; } = string.Empty;
+        public int? MaHdn { get; set; }
+        public bool DaCanhBao { get; set; }
+    }
+
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize]
     public class LichThuPhiController : ControllerBase
     {
         private readonly LichThuPhiService _service;
@@ -19,105 +30,110 @@ namespace QuanLyBaoHiem.Controllers
 
         // GET: api/LichThuPhi
         [HttpGet]
-        public IActionResult GetAll()
+        public async Task<IActionResult> LayDanhSach()
         {
-            return Ok(_service.GetAll());
+            var danhSach = await _service.LayDanhSach();
+
+            return Ok(danhSach.Select(x => new
+            {
+                x.MaLichThu,
+                x.MaHd,
+                x.KyThu,
+                x.NgayDenHan,
+                x.SoTien,
+                x.TrangThai,
+                x.MaHdn,
+                x.DaCanhBao,
+                x.NgayTao
+            }));
         }
 
         // GET: api/LichThuPhi/1
-        [HttpGet("{id}")]
-        public IActionResult GetById(int id)
+        [HttpGet("{maLichThu:int}")]
+        public async Task<IActionResult> TimTheoMa(int maLichThu)
         {
-            var data = _service.GetById(id);
+            var x = await _service.TimTheoMa(maLichThu);
 
-            if (data == null)
-                return NotFound("Không tìm thấy lịch thu phí");
+            if (x == null)
+                return NotFound(new
+                {
+                    message = "Không tìm thấy lịch thu phí."
+                });
 
-            return Ok(data);
-        }
-
-        // GET: api/LichThuPhi/hopdong/1
-        [HttpGet("hopdong/{maHD}")]
-        public IActionResult GetByHopDong(int maHD)
-        {
-            var data = _service.GetByHopDong(maHD);
-
-            return Ok(data);
+            return Ok(new
+            {
+                x.MaLichThu,
+                x.MaHd,
+                x.KyThu,
+                x.NgayDenHan,
+                x.SoTien,
+                x.TrangThai,
+                x.MaHdn,
+                x.DaCanhBao,
+                x.NgayTao
+            });
         }
 
         // POST: api/LichThuPhi
         [HttpPost]
-        public IActionResult Create([FromBody] LichThuPhi lich)
+        public async Task<IActionResult> Them([FromBody] LichThuPhiDto dto)
         {
-            if (lich == null)
-                return BadRequest("Dữ liệu không hợp lệ");
+            var lich = new LichThuPhi
+            {
+                MaHd = dto.MaHd,
+                KyThu = dto.KyThu,
+                NgayDenHan = dto.NgayDenHan,
+                SoTien = dto.SoTien,
+                TrangThai = dto.TrangThai,
+                MaHdn = dto.MaHdn,
+                DaCanhBao = dto.DaCanhBao
+            };
 
-            if (lich.SoTien < 0)
-                return BadRequest("Số tiền không được âm");
+            var ketQua = await _service.Them(lich);
 
-            var result = _service.Add(lich);
+            if (ketQua != "Thêm lịch thu phí thành công.")
+                return BadRequest(new { message = ketQua });
 
-            if (!result)
-                return BadRequest("Hợp đồng không tồn tại");
-
-            return Ok("Thêm lịch thu phí thành công");
+            return Ok(new { message = ketQua });
         }
 
         // PUT: api/LichThuPhi/1
-        [HttpPut("{id}")]
-        public IActionResult Update(
-            int id,
-            [FromBody] LichThuPhi lich)
+        [HttpPut("{maLichThu:int}")]
+        public async Task<IActionResult> CapNhat(
+            int maLichThu, [FromBody] LichThuPhiDto dto)
         {
-            if (lich == null)
-                return BadRequest("Dữ liệu không hợp lệ");
+            var lich = new LichThuPhi
+            {
+                MaHd = dto.MaHd,
+                KyThu = dto.KyThu,
+                NgayDenHan = dto.NgayDenHan,
+                SoTien = dto.SoTien,
+                TrangThai = dto.TrangThai,
+                MaHdn = dto.MaHdn,
+                DaCanhBao = dto.DaCanhBao
+            };
 
-            if (lich.SoTien < 0)
-                return BadRequest("Số tiền không được âm");
+            var ketQua = await _service.CapNhat(maLichThu, lich);
 
-            var result = _service.Update(id, lich);
+            if (ketQua == "Không tìm thấy lịch thu phí.")
+                return NotFound(new { message = ketQua });
 
-            if (!result)
-                return NotFound("Không tìm thấy lịch thu phí");
+            if (ketQua != "Cập nhật lịch thu phí thành công.")
+                return BadRequest(new { message = ketQua });
 
-            return Ok("Cập nhật lịch thu phí thành công");
+            return Ok(new { message = ketQua });
         }
 
-        // PUT: api/LichThuPhi/dathanhtoan/1
-        [HttpPut("dathanhtoan/{id}")]
-        public IActionResult DaThanhToan(int id)
+        // DELETE: api/LichThuPhi/1
+        [HttpDelete("{maLichThu:int}")]
+        public async Task<IActionResult> Xoa(int maLichThu)
         {
-            var result = _service.DaThanhToan(id);
+            var ketQua = await _service.Xoa(maLichThu);
 
-            if (!result)
-                return NotFound("Không tìm thấy lịch thu phí");
+            if (ketQua == "Không tìm thấy lịch thu phí.")
+                return NotFound(new { message = ketQua });
 
-            return Ok("Đã cập nhật trạng thái Đã thanh toán");
-        }
-
-        // PUT: api/LichThuPhi/quahan/1
-        [HttpPut("quahan/{id}")]
-        public IActionResult QuaHan(int id)
-        {
-            var result = _service.QuaHan(id);
-
-            if (!result)
-                return BadRequest(
-                    "Không tìm thấy lịch thu phí hoặc lịch đã thanh toán");
-
-            return Ok("Đã chuyển lịch thu phí sang trạng thái Quá hạn");
-        }
-
-        // PUT: api/LichThuPhi/canhbao/1
-        [HttpPut("canhbao/{id}")]
-        public IActionResult DanhDauCanhBao(int id)
-        {
-            var result = _service.DanhDauCanhBao(id);
-
-            if (!result)
-                return NotFound("Không tìm thấy lịch thu phí");
-
-            return Ok("Đã đánh dấu cảnh báo");
+            return Ok(new { message = ketQua });
         }
     }
 }

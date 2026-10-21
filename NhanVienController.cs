@@ -1,11 +1,15 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using QuanLyBaoHiem.Models;
-using QuanLyBaoHiem.Services;
+﻿
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
+using QuanLyBaoHiem.BLL;
+using QuanLyBaoHiem.Models.DTO;
 
 namespace QuanLyBaoHiem.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class NhanVienController : ControllerBase
     {
         private readonly NhanVienService _service;
@@ -15,113 +19,85 @@ namespace QuanLyBaoHiem.Controllers
             _service = service;
         }
 
-        // GET: api/NhanVien
+        private int? LayMaTaiKhoan()
+        {
+            var value = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            return int.TryParse(value, out int maTk) ? maTk : null;
+        }
+
         [HttpGet]
-        public IActionResult GetAll()
-        {
-            var data = _service.GetAll();
+        public async Task<IActionResult> LayTatCa(
+            [FromQuery] string? tuKhoa = null,
+            [FromQuery] int page = 1,
+            [FromQuery] int size = 10)
+            => Ok(await _service.LayTatCa(tuKhoa, page, size));
 
-            return Ok(data);
+        [HttpGet("{maNv:int}")]
+        public async Task<IActionResult> LayTheoMa(int maNv)
+        {
+            if (maNv <= 0)
+                return BadRequest(new { message = "Mã nhân viên không hợp lệ." });
+
+            var nv = await _service.LayTheoMa(maNv);
+
+            return nv == null
+                ? NotFound(new { message = "Không tìm thấy nhân viên." })
+                : Ok(nv);
         }
 
-        // GET: api/NhanVien/1
-        [HttpGet("{id}")]
-        public IActionResult GetById(int id)
-        {
-            var data = _service.GetById(id);
-
-            if (data == null)
-            {
-                return NotFound("Không tìm thấy nhân viên");
-            }
-
-            return Ok(data);
-        }
-
-        // POST: api/NhanVien
         [HttpPost]
-        public IActionResult Add(NhanVien nhanVien)
+        [Authorize(Roles = "Admin,Manager")]
+        public async Task<IActionResult> Them(NhanVienDto dto)
         {
-            // Kiểm tra họ tên
-            if (string.IsNullOrWhiteSpace(nhanVien.HoTen))
+            try
             {
-                return BadRequest("Họ tên không được để trống");
+                var nv = await _service.Them(dto, LayMaTaiKhoan());
+                return Ok(new
+                {
+                    message = "Thêm nhân viên thành công.",
+                    maNv = nv.MaNv
+                });
             }
-
-            // Kiểm tra số điện thoại
-            if (string.IsNullOrWhiteSpace(nhanVien.SoDienThoai))
+            catch (ArgumentException ex)
             {
-                return BadRequest("Số điện thoại không được để trống");
+                return BadRequest(new { message = ex.Message });
             }
-
-            // Kiểm tra chức vụ
-            if (string.IsNullOrWhiteSpace(nhanVien.ChucVu))
-            {
-                return BadRequest("Chức vụ không được để trống");
-            }
-
-            var result = _service.Add(nhanVien);
-
-            if (!result)
-            {
-                return BadRequest("Số điện thoại đã tồn tại");
-            }
-
-            return Ok("Thêm nhân viên thành công");
         }
 
-        // PUT: api/NhanVien/1
-        [HttpPut("{id}")]
-        public IActionResult Update(int id, NhanVien nhanVien)
+        [HttpPut("{maNv:int}")]
+        [Authorize(Roles = "Admin,Manager")]
+        public async Task<IActionResult> CapNhat(int maNv, NhanVienDto dto)
         {
-            var data = _service.GetById(id);
+            if (maNv <= 0)
+                return BadRequest(new { message = "Mã nhân viên không hợp lệ." });
 
-            if (data == null)
+            try
             {
-                return NotFound("Không tìm thấy nhân viên");
+                bool ok = await _service.CapNhat(
+                    maNv, dto, LayMaTaiKhoan());
+
+                return !ok
+                    ? NotFound(new { message = "Không tìm thấy nhân viên." })
+                    : Ok(new { message = "Cập nhật nhân viên thành công." });
             }
-
-            // Gán mã lấy từ URL
-            nhanVien.MaNV = id;
-
-            // Kiểm tra dữ liệu
-            if (string.IsNullOrWhiteSpace(nhanVien.HoTen))
+            catch (ArgumentException ex)
             {
-                return BadRequest("Họ tên không được để trống");
+                return BadRequest(new { message = ex.Message });
             }
-
-            if (string.IsNullOrWhiteSpace(nhanVien.SoDienThoai))
-            {
-                return BadRequest("Số điện thoại không được để trống");
-            }
-
-            if (string.IsNullOrWhiteSpace(nhanVien.ChucVu))
-            {
-                return BadRequest("Chức vụ không được để trống");
-            }
-
-            var result = _service.Update(nhanVien);
-
-            if (!result)
-            {
-                return BadRequest("Số điện thoại đã tồn tại");
-            }
-
-            return Ok("Sửa nhân viên thành công");
         }
 
-        // DELETE: api/NhanVien/1
-        [HttpDelete("{id}")]
-        public IActionResult Delete(int id, int? nguoiXoa = null)
+        [HttpDelete("{maNv:int}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> Xoa(int maNv)
         {
-            var result = _service.DeleteSoft(id, nguoiXoa);
+            if (maNv <= 0)
+                return BadRequest(new { message = "Mã nhân viên không hợp lệ." });
 
-            if (!result)
-            {
-                return NotFound("Không tìm thấy nhân viên");
-            }
+            bool ok = await _service.XoaMem(maNv, LayMaTaiKhoan());
 
-            return Ok("Xóa mềm nhân viên thành công");
+            return !ok
+                ? NotFound(new { message = "Không tìm thấy nhân viên." })
+                : Ok(new { message = "Xóa mềm nhân viên thành công." });
         }
     }
 }
